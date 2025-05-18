@@ -325,7 +325,7 @@ def preprocess_graph(
 ) -> Dict:
     is_graph = graph_cfg['is_graph']
     # image_token_len = multimodal_cfg['image_token_len']
-    graph_token_len = cur_token_len #中心节点及邻居节点的数量
+    graph_token_len = cur_token_len 
     if not is_graph:#False
         return sources
 
@@ -337,8 +337,8 @@ def preprocess_graph(
         for sentence in source:
             replace_token = DEFAULT_GRAPH_PATCH_TOKEN * graph_token_len
             if graph_cfg['use_graph_start_end']: #True
-                replace_token = DEFAULT_G_START_TOKEN + replace_token + DEFAULT_G_END_TOKEN # '<g_start>graph_token_len个<g_patch><g_end>'
-            sentence["value"] = sentence["value"].replace(DEFAULT_GRAPH_TOKEN, replace_token)#将用户prompt中<graph>替换为<g_start>graph_token_len个<g_patch><g_end>即graph结构信息
+                replace_token = DEFAULT_G_START_TOKEN + replace_token + DEFAULT_G_END_TOKEN 
+            sentence["value"] = sentence["value"].replace(DEFAULT_GRAPH_TOKEN, replace_token)
 
     return sources
 
@@ -347,7 +347,7 @@ def preprocess_graph_LP(
     graph_cfg: dict,
     cur_token_len_1: int,
     cur_token_len_2: int,
-) -> Dict: # 逻辑与节点处理方法完全相同，只是有两个<graph>标识需要处理
+) -> Dict: # 
     is_graph = graph_cfg['is_graph'] #True
     # image_token_len = multimodal_cfg['image_token_len']
     graph_token_len_1 = cur_token_len_1 #13
@@ -356,7 +356,7 @@ def preprocess_graph_LP(
     if not is_graph:
         return sources
 
-    for source in sources:#将prompt中两个<graph>标识替换为标识graph序列的占位符
+    for source in sources:
         if graph_cfg['sep_graph_conv_front']: #False
             assert DEFAULT_GRAPH_TOKEN in source[0]['value']
             source[0]['value'] = source[0]['value'].replace(DEFAULT_GRAPH_TOKEN, '').strip()
@@ -602,15 +602,13 @@ class LazySupervisedDataset(Dataset):
         if data_args.empty:
             data_path = data_path.replace(f'{data_args.dataset}', f'{data_args.dataset}-empty')
 
-        list_data_dict = json.load(open(data_path, "r"))#是一个列表，每个元素是一个字典，表示一条对话数据;整个列表通过json存到本地了，不是一条条的json，是所有一条条的json放在list中通过json直接dump到本地了
-
+        list_data_dict = json.load(open(data_path, "r"))
         logging.warning("Formatting inputs...Skip in lazy mode")
         self.tokenizer = tokenizer
         self.list_data_dict = list_data_dict
         self.graph_cfg = graph_cfg
-        # graph_data_path = kwargs.get('graph_data_path')#'graph_data/graph_data_all.pt'
         self.pretrained_embs = self.load_pretrain_embedding_graph(data_args)
-        # torch.load(graph_data_path)# {'arxiv': Data(x=[169343, 128], edge_index=[2, 1166243], y=[169343, 1], num_nodes=169343, node_year=[169343, 1], adj_t=[169343, 169343, nnz=1166243], train_mask=[169343], val_mask=[169343], test_mask=[169343]), 'cora': Data(x=[25120, 128], edge_index=[2, 91140], y=[25120], num_nodes=25120, train_id=[10234], val_id=[3445], test_id=[3414], train_mask=[25120], val_mask=[25120], test_mask=[25120]), 'pubmed': Data(x=[19717, 128], edge_index=[2, 88648], y=[19717], train_mask=[19717], val_mask=[19717], test_mask=[19717], train_id=[11830], val_id=[3943], test_id=[3944]), 'Industrial': Data(x=[1260055, 128], edge_index=[2, 3101672], num_nodes=1260055, y=[1260055, 1], train_id=[756033], val_id=[252011], test_id=[252011], train_mask=[1260055], val_mask=[1260055], test_mask=[1260055])} Data.x是节点的embedding tensor
+        
 
     def load_pretrain_embedding_graph(self, args):
         data_dir = f'../DyGLLM/processed_data/{args.dataset}'
@@ -623,8 +621,6 @@ class LazySupervisedDataset(Dataset):
         return len(self.list_data_dict)
 
     def __getitem__(self, i) -> Dict[str, torch.Tensor]:
-        # print(f"Process {os.getpid()} loading index {i}")
-        # print(f"__getitem__ called with index: {i}")
         sources = self.list_data_dict[i]
         if isinstance(i, int):
             sources = [sources]
@@ -634,13 +630,13 @@ class LazySupervisedDataset(Dataset):
         if task_type != 'LP': # NC
             if 'graph' in sources[0]: #True
                 graph_dict = self.list_data_dict[i]['graph']
-                graph_edge_index = torch.Tensor(copy.deepcopy(graph_dict['edge_index'])).long()#应该是中心节点与邻居节点构成子图后并将节点重新编号了(从0开始)
-                graph_node_list = copy.deepcopy(graph_dict['node_list'])#中心节点及邻居节点的原始编号
-                target_node = copy.deepcopy(graph_dict['node_idx'])#中心节点原始编号
-                graph_node_rep = self.pretrained_embs[graph_node_list] ## 取出子图节点的embedding
+                graph_edge_index = torch.Tensor(copy.deepcopy(graph_dict['edge_index'])).long()
+                graph_node_list = copy.deepcopy(graph_dict['node_list'])
+                target_node = copy.deepcopy(graph_dict['node_idx'])
+                graph_node_rep = self.pretrained_embs[graph_node_list] 
                 
-                cur_token_len = len(graph_node_rep)   # FIXME: 14 is hardcoded patch size,中心节点及邻居节点数量
-                sources = preprocess_graph(#将文本中的 <graph> Token 替换为占位符的graph结构序列，其只是提供了占位符标明graph序列所在的位置及占多少个位置，这时还没有具体结构序列内容的
+                cur_token_len = len(graph_node_rep)   
+                sources = preprocess_graph(
                     copy.deepcopy([e["conversations"] for e in sources]),
                     self.graph_cfg, cur_token_len)
             else:
@@ -648,53 +644,44 @@ class LazySupervisedDataset(Dataset):
         else: 
             if 'graph' in sources[0]:
                 graph_dict = self.list_data_dict[i]['graph']
-                graph_edge_index_1 = torch.Tensor(copy.deepcopy(graph_dict['edge_index_1'])).long()#第一个子图的edge_index，从0重新编号了
-                graph_node_list_1 = copy.deepcopy(graph_dict['node_list_1'])#第一个子图的节点列表，原始编号
-                target_node_1 = copy.deepcopy(graph_dict['node_idx_1'])#第一个子图的中心节点，原始编号
-                graph_type = copy.deepcopy(self.list_data_dict[i]['id']).split('_')[0] #graph数据集名称，如pubmed
-                # graph_node_rep_1 = self.graph_data_all[graph_type].x[graph_node_list_1] ## 取出第一个子图节点的embedding。self.graph_data_all是字典包含了不同的数据集,keys:dict_keys(['arxiv', 'cora', 'pubmed', 'Industrial']);每个数据集对应了一个Data对象，如self.graph_data_all['pubmed']=Data(x=[19717, 128], edge_index=[2, 88648], y=[19717], train_mask=[19717], val_mask=[19717], test_mask=[19717], train_id=[11830], val_id=[3943], test_id=[3944]).
-                graph_node_rep_1 = self.pretrained_embs[graph_node_list_1] ## 取出第一个子图节点的embedding。self.graph_data_all是字典包含了不同的数据集,keys:dict_keys(['arxiv', 'cora', 'pubmed', 'Industrial']);每个数据集对应了一个Data对象，如self.graph_data_all['pubmed']=Data(x=[19717, 128], edge_index=[2, 88648], y=[19717], train_mask=[19717], val_mask=[19717], test_mask=[19717], train_id=[11830], val_id=[3943], test_id=[3944]).
+                graph_edge_index_1 = torch.Tensor(copy.deepcopy(graph_dict['edge_index_1'])).long()
+                graph_node_list_1 = copy.deepcopy(graph_dict['node_list_1'])
+                target_node_1 = copy.deepcopy(graph_dict['node_idx_1'])
+                graph_type = copy.deepcopy(self.list_data_dict[i]['id']).split('_')[0] 
+                graph_node_rep_1 = self.pretrained_embs[graph_node_list_1] 
                 
-                cur_token_len_1 = len(graph_node_rep_1)   # FIXME: 14 is hardcoded patch size.分别计算两个图的 Token 长度（即节点数量）
+                cur_token_len_1 = len(graph_node_rep_1)   
 
-                graph_edge_index_2 = torch.Tensor(copy.deepcopy(graph_dict['edge_index_2'])).long()#第二个子图的edge_index，从0重新编号了
-                graph_node_list_2 = copy.deepcopy(graph_dict['node_list_2'])#第二个子图的节点列表，原始编号
-                target_node_2 = copy.deepcopy(graph_dict['node_idx_2'])#第二个子图的中心节点，原始编号
-                # graph_node_rep_2 = self.graph_data_all[graph_type].x[graph_node_list_2] ## 节点特征
-                graph_node_rep_2 = self.pretrained_embs[graph_node_list_2] ## 节点特征
+                graph_edge_index_2 = torch.Tensor(copy.deepcopy(graph_dict['edge_index_2'])).long()
+                graph_node_list_2 = copy.deepcopy(graph_dict['node_list_2'])
+                target_node_2 = copy.deepcopy(graph_dict['node_idx_2'])
+                graph_node_rep_2 = self.pretrained_embs[graph_node_list_2] 
                 
                 cur_token_len_2 = len(graph_node_rep_2)   # FIXME: 14 is hardcoded patch size
-                sources = preprocess_graph_LP( # 逻辑与节点处理方法完全相同，只是有两个<graph>标识需要处理
-                    copy.deepcopy([e["conversations"] for e in sources]),#sources是长度为1的list
+                sources = preprocess_graph_LP( 
+                    copy.deepcopy([e["conversations"] for e in sources]),
                     self.graph_cfg, cur_token_len_1, cur_token_len_2)
             else:
                 sources = copy.deepcopy([e["conversations"] for e in sources])
-        data_dict = preprocess( #对文本数据进行 Tokenization,提供LLM输入和期望输出的token序列以用来训练LLM的文本生成能力
+        data_dict = preprocess( 
             sources,
-            self.tokenizer) #处理后此时data_dict只有input_ids和labels的值
+            self.tokenizer) 
         if isinstance(i, int): #True
-            data_dict = dict(input_ids=data_dict["input_ids"][0],# input_ids是LLM的输入token序列，labels是期望的LLM的输出token序列
+            data_dict = dict(input_ids=data_dict["input_ids"][0],
                              labels=data_dict["labels"][0])
 
         # image exist in the data
-        if task_type != 'LP': # NC
-            if 'graph' in self.list_data_dict[i]: #True
-                # data_dict['graph_node'] = graph_node_rep
-                # data_dict['graph_edge'] = graph_edge_index
-                # data_dict['target_node'] = target_node
-                data_dict['graph_data'] = Data(graph_node = graph_node_rep, edge_index=graph_edge_index, target_node = torch.tensor([target_node])) #子图的embedding及结构edge_index
-
+        if task_type != 'LP': 
+            if 'graph' in self.list_data_dict[i]:
+                data_dict['graph_data'] = Data(graph_node = graph_node_rep, edge_index=graph_edge_index, target_node = torch.tensor([target_node]))
             elif self.graph_cfg['is_graph']:
                 # image does not exist in the data, but the model is multimodal
                 node_feas = self.graph_cfg['graph_processor'].node_feas
                 data_dict['graph_data'] = Data(graph_node = torch.zeros(3, node_feas), edge_index=torch.zeros(2, 3), target_node = torch.tensor([0]))
         else: #LP
-            if 'graph' in self.list_data_dict[i]:#True
-                # data_dict['graph_node'] = graph_node_rep
-                # data_dict['graph_edge'] = graph_edge_index
-                # data_dict['target_node'] = target_node
+            if 'graph' in self.list_data_dict[i]:
                 data_dict['graph_data'] = {
-                    'graph_1': Data(graph_node = graph_node_rep_1, edge_index=graph_edge_index_1, target_node = torch.tensor([target_node_1])), #graph_edge_index_1是子图edge_index从0编号的，target_node是原始编号，graph_node是子图节点的embedding（是否从0编号无所谓）
+                    'graph_1': Data(graph_node = graph_node_rep_1, edge_index=graph_edge_index_1, target_node = torch.tensor([target_node_1])), 
                     'graph_2': Data(graph_node = graph_node_rep_2, edge_index=graph_edge_index_2, target_node = torch.tensor([target_node_2]))
                     }
 
@@ -704,7 +691,7 @@ class LazySupervisedDataset(Dataset):
                 data_dict['graph_data'] = Data(graph_node = torch.zeros(3, node_feas), edge_index=torch.zeros(2, 3), target_node = torch.tensor([0]))
         
         # data_dict['index'] = i
-        return data_dict #包含 input_ids、labels 和 graph_data 的字典
+        return data_dict 
     
 class LazySupervisedDataset_back(Dataset):
     """Dataset for supervised fine-tuning."""
@@ -755,9 +742,6 @@ class LazySupervisedDataset_back(Dataset):
 
         # image exist in the data
         if 'graph' in self.list_data_dict[i]:
-            # data_dict['graph_node'] = graph_node_rep
-            # data_dict['graph_edge'] = graph_edge_index
-            # data_dict['target_node'] = target_node
             data_dict['graph_data'] = Data(graph_node = graph_node_rep, edge_index=graph_edge_index, target_node = torch.tensor([target_node]))
 
         elif self.graph_cfg['is_graph']:
@@ -774,7 +758,6 @@ class DataCollatorForSupervisedDataset(object):
     tokenizer: transformers.PreTrainedTokenizer
 
     def __call__(self, instances: Sequence[Dict]) -> Dict[str, torch.Tensor]:
-        # print("Collating batch with indices:", [item["index"] for item in instances])
         input_ids, labels = tuple([instance[key] for instance in instances]
                                   for key in ("input_ids", "labels"))
         input_ids = torch.nn.utils.rnn.pad_sequence(
@@ -791,19 +774,8 @@ class DataCollatorForSupervisedDataset(object):
         )
 
         if 'graph_data' in instances[0]:
-            # graph_node_reps = [instance['graph_node'] for instance in instances]
-            # edge_index_reps = [instance['graph_edge'] for instance in instances]
-            # target_node_reps = [instance['target_node'] for instance in instances]
             graph_data_batch = [instance['graph_data'] for instance in instances]
-            # if all(x is not None and x.shape == images[0].shape for x in images):
-            #     batch['images'] = torch.stack(images)
-            # else:
-            #     batch['images'] = images
-        # batch['graph_node_reps'] = graph_node_reps
-        # batch['edge_index_reps'] = edge_index_reps
-        # batch['edge_index_reps'] = target_node_reps
         batch['graph_data'] = graph_data_batch
-        # batch['index']=[instance['index'] for instance in instances]
         return batch
 
 
@@ -813,7 +785,6 @@ def make_supervised_data_module(tokenizer: transformers.PreTrainedTokenizer,
     dataset_cls = (LazySupervisedDataset #<class 'train_graph.LazySupervisedDataset'>
                    if data_args.lazy_preprocess else SupervisedDataset)
     train_dataset = dataset_cls(tokenizer=tokenizer,
-                                # data_path=data_args.data_path,#'./data/stage_2/arxiv_pub_node_st_cot_link_mix.json'
                                 graph_cfg=dict(
                                     is_graph=data_args.is_graph,
                                     sep_graph_conv_front=data_args.sep_graph_conv_front,
@@ -822,7 +793,6 @@ def make_supervised_data_module(tokenizer: transformers.PreTrainedTokenizer,
                                     use_graph_start_end=getattr(data_args, 'use_graph_start_end', False)#True
                                     ), 
                                 data_args=data_args,
-                                    # graph_data_path = data_args.graph_data_path
                                     )
     data_collator = DataCollatorForSupervisedDataset(tokenizer=tokenizer)
     return dict(train_dataset=train_dataset,
@@ -958,7 +928,7 @@ def train():
         conversation_lib.default_conversation = conversation_lib.conv_templates["vicuna_v1_1"]
 
     if model_args.graph_tower is not None: #True
-        model_graph_dict = model.get_model().initialize_graph_modules(#该函数作用是将预训练的CLIP模型加载到GraphLlamaModel.graph_tower和给GraphLlamaModel初始化graph_projector(从节点embedding到token embedding的投影Linear层)
+        model_graph_dict = model.get_model().initialize_graph_modules(
             graph_tower=model_args.graph_tower, #'clip_gt'
             graph_select_layer=model_args.graph_select_layer,
             pretrain_graph_mlp_adapter=model_args.pretrain_graph_mlp_adapter,
@@ -967,16 +937,12 @@ def train():
             data_args=data_args
         )
         model.get_graph_tower().to(dtype=torch.float16, device=training_args.device)
-        # graph_config = model_graph_dict['graph_config']
-
-        # data_args.graph_token_len = model_graph_dict['graph_token_len']
-        # data_args.graph_processor = model_graph_dict['graph_processor']
         data_args.is_graph = True
 
         model.config.tune_graph_mlp_adapter = training_args.tune_graph_mlp_adapter = model_args.tune_graph_mlp_adapter # True
-        if model_args.tune_graph_mlp_adapter: # True
-            model.requires_grad_(False) # model(GraphLlamaForCausalLM)的参数中只有GraphLlamaModel.graph_projector的参数参与训练
-            for p in model.get_model().graph_projector.parameters(): #graph_projector就是(64, 4096)的Linear
+        if model_args.tune_graph_mlp_adapter: 
+            model.requires_grad_(False) 
+            for p in model.get_model().graph_projector.parameters(): 
                 p.requires_grad = True
 
         model.config.freeze_graph_mlp_adapter = training_args.freeze_graph_mlp_adapter # False
@@ -987,17 +953,16 @@ def train():
         if training_args.bits in [4, 8]:
             model.get_model().graph_projector.to(dtype=compute_dtype, device=training_args.device)
 
-        model.config.use_graph_start_end = data_args.use_graph_start_end = model_args.use_graph_start_end #True
-        # graph_config.use_graph_start_end = training_args.use_graph_start_end = model_args.use_graph_start_end
-        training_args.use_graph_start_end = model_args.use_graph_start_end # True
-        model.config.sep_graph_conv_front = data_args.sep_graph_conv_front # False
+        model.config.use_graph_start_end = data_args.use_graph_start_end = model_args.use_graph_start_end 
+        training_args.use_graph_start_end = model_args.use_graph_start_end 
+        model.config.sep_graph_conv_front = data_args.sep_graph_conv_front 
         model.initialize_graph_tokenizer(use_graph_start_end=model_args.use_graph_start_end, tokenizer=tokenizer, device=training_args.device,
-                tune_graph_mlp_adapter=model_args.tune_graph_mlp_adapter,#True
-                pretrain_graph_mlp_adapter=model_args.pretrain_graph_mlp_adapter)#None
+                tune_graph_mlp_adapter=model_args.tune_graph_mlp_adapter,
+                pretrain_graph_mlp_adapter=model_args.pretrain_graph_mlp_adapter)
 
         params_no_grad = [n for n, p in model.named_parameters() if not p.requires_grad]
-        if len(params_no_grad) > 0: #True
-            if training_args.fsdp is not None and len(training_args.fsdp) > 0: #False
+        if len(params_no_grad) > 0: 
+            if training_args.fsdp is not None and len(training_args.fsdp) > 0: 
                 if len(params_no_grad) < 10:
                     print('[WARNING] Attempting to use FSDP while {} parameters do not require gradients: {}'. format(len(params_no_grad), params_no_grad))
                 else:
@@ -1032,7 +997,7 @@ def train():
     trainer = GraphChatTrainer(model=model,
                     tokenizer=tokenizer,
                     args=training_args,
-                    **data_module)#包含train_dataset=train_dataset,eval_dataset=None,data_collator=data_collator，其中train_dataset每次提供的数据包括input_ids、labels 和 graph_data
+                    **data_module)
     
     print('************************** parameters: #', sum(p.numel() for p in model.parameters() if p.requires_grad))
     tuned_params = []
@@ -1041,13 +1006,13 @@ def train():
             tuned_params.append(name)
     print(tuned_params)
 
-    if list(pathlib.Path(training_args.output_dir).glob("checkpoint-*")): #若之前已经训练了本地有checkpoint那么继续训练
+    if list(pathlib.Path(training_args.output_dir).glob("checkpoint-*")): 
         trainer.train(resume_from_checkpoint=True)
-    else: #第一次训练
+    else:
         trainer.train()
     trainer.save_state()
 
-    if training_args.lora_enable: #False
+    if training_args.lora_enable: 
         state_dict = get_peft_state_maybe_zero_3(
             model.named_parameters(), training_args.lora_bias
         )

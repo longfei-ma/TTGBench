@@ -413,7 +413,7 @@ def preprocess_v1(
 
     # Tokenize conversations
 
-    if has_graph:#tokenizer_graph_token功能是将包含图数据标记的对话文本转换为 token ID 序列，并在图数据标记的位置插入特定的 token ID
+    if has_graph:
         input_ids = torch.stack([tokenizer_graph_token(prompt, tokenizer, return_tensors='pt') for prompt in conversations], dim=0)
     else:
         input_ids = tokenizer(
@@ -423,40 +423,40 @@ def preprocess_v1(
             max_length=tokenizer.model_max_length,
             truncation=True,
         ).input_ids
-    # input_ids为将包含图数据标记的对话文本转换为 token ID 序列，并在图数据标记的位置插入特定的 token ID
-    targets = input_ids.clone() #targets 是 labels 的基础，要对其进行掩码处理
+    
+    targets = input_ids.clone() 
 
     assert conv.sep_style == conversation_lib.SeparatorStyle.TWO
 
     # Mask targets
-    sep = conv.sep + conv.roles[1] + ": " #定义分隔符 sep，用于将对话中的每一轮分开
-    for conversation, target in zip(conversations, targets):#conversation是对话文本,target是其对应的处理graph标识后的token id
+    sep = conv.sep + conv.roles[1] + ": " 
+    for conversation, target in zip(conversations, targets):
         # total_len = int(target.ne(tokenizer.pad_token_id).sum())
-        total_len = target.shape[0] #当前对话的 token 数量
+        total_len = target.shape[0] 
 
-        rounds = conversation.split(conv.sep2) #将对话文本按</s>分割成多轮对话
-        cur_len = 1 #初始化当前处理的 token 位置,cur_len 从 1 开始，表示跳过第一个 token（通常是起始 token）
-        target[:cur_len] = IGNORE_INDEX#IGNORE_INDEX 是一个特殊值（值为-100），表示这些 token 不需要计算损失
+        rounds = conversation.split(conv.sep2) 
+        cur_len = 1 
+        target[:cur_len] = IGNORE_INDEX
         for i, rou in enumerate(rounds):
             if rou == "":
                 break
 
-            parts = rou.split(sep)#将当前轮对话按' ASSISTANT: '分割成两部分,第一部分是人类对话,第二部分是GPT回复
+            parts = rou.split(sep)
             if len(parts) != 2:
                 break
-            parts[0] += sep #parts[0]内容是完整的人类prompt内容，包括ASSISTANT:部分
+            parts[0] += sep 
 
             if has_graph:
-                round_len = len(tokenizer_graph_token(rou, tokenizer))#rou是prompt加GPT回复答案（没有</s>）内容
-                instruction_len = len(tokenizer_graph_token(parts[0], tokenizer)) - 2#计算人类对话部分（... ASSISTANT: ）的 token 长度,-2 是为了去掉GPT回复答案(yes)的长度,yes对应的token长度是2,parts[0]虽然比rou绍了GPT答案内容但二者的token数量相等,但单独的yes却占2个token
+                round_len = len(tokenizer_graph_token(rou, tokenizer))
+                instruction_len = len(tokenizer_graph_token(parts[0], tokenizer)) - 2
             else:
                 round_len = len(tokenizer(rou).input_ids)
                 instruction_len = len(tokenizer(parts[0]).input_ids) - 2
-            #conversation比rou多了</s>，前者比后者的token数多1
-            target[cur_len : cur_len + instruction_len] = IGNORE_INDEX#人类对话部分对应的 token 不需要计算损失
+            
+            target[cur_len : cur_len + instruction_len] = IGNORE_INDEX
 
             cur_len += round_len
-        target[cur_len:] = IGNORE_INDEX#确保只有需要预测的部分（GPT 回复）保留有效值
+        target[cur_len:] = IGNORE_INDEX
 
         if cur_len < tokenizer.model_max_length:
             if cur_len != total_len:#
@@ -469,7 +469,7 @@ def preprocess_v1(
     return dict(
         input_ids=input_ids,
         labels=targets,
-    ) #input_ids是分词后的token ID序列,labels是掩码后的目标token ID序列,除了yes和</s>外所有字符都掩码了
+    ) 
 
 
 def preprocess_mpt(
@@ -602,12 +602,11 @@ class LazySupervisedGraphDataset(Dataset):
         for d, dataset in enumerate(self.use_dataset):
             repeat=1
             if data_args.template == "ND":
-                # 每个节点文本的sbert embedding
                 pretrained_emb = self.load_pretrain_embedding_graph(dataset, data_args.pretrained_embedding_type)
                 if data_args.empty: # 
                     pretrained_emb = torch.zeros_like(pretrained_emb)
-                self.structure_emb = torch.load( #'dataset/laplacian_2_2.pt'
-                    f"dataset/laplacian_{data_args.use_hop}_{data_args.sample_neighbor_size}.pt")#(torch.Size([7, 7])
+                self.structure_emb = torch.load( 
+                    f"dataset/laplacian_{data_args.use_hop}_{data_args.sample_neighbor_size}.pt")
             elif data_args.template == "HO":
                 pretrained_emb = self.load_pretrain_embedding_hop(dataset, data_args.pretrained_embedding_type, data_args.use_hop)
                 if data_args.empty: # 
@@ -629,13 +628,11 @@ class LazySupervisedGraphDataset(Dataset):
                             for line in file:
                                 l = json.loads(line)
                                 l["dataset"]=dataset
-                                # l["conversations"][0][
-                                #     'value'] = f"Given a node-centered graph: {DEFAULT_GRAPH_TOKEN}, where nodes represent products sold in Amazon, and edges between products indicate they are purchased together. We need to classify the center node into 47 classes: Home & Kitchen, Health & Personal Care, Beauty, Sports & Outdoors, Books, Patio, Lawn & Garden, Toys & Games, CDs & Vinyl, Cell Phones & Accessories, Grocery & Gourmet Food, Arts, Crafts & Sewing, Clothing, Shoes & Jewelry, Electronics, Movies & TV, Software, Video Games, Automotive, Pet Supplies, Office Products, Industrial & Scientific, Musical Instruments, Tools & Home Improvement, Magazine Subscriptions, Baby Products, label 25, Appliances, Kitchen & Dining, Collectibles & Fine Art, All Beauty, Luxury Beauty, Amazon Fashion, Computers, All Electronics, Purchase Circles, MP3 Players & Accessories, Gift Cards, Office & School Supplies, Home Improvement, Camera & Photo, GPS & Navigation, Digital Music, Car Electronics, Baby, Kindle Store, Buy a Kindle, Furniture & D&#233;cor, #508510, please tell me which class the center node belongs to?"
+                                
                                 task_list_data_dict.append(l)
                     else:
                         raise ValueError
                 elif task == "lp":
-                    # data_path = os.path.join(f"dataset/{dataset}/edge_sampled_{data_args.use_hop}_{data_args.sample_neighbor_size}_only_train{data_args.run}.jsonl")
                     data_path = os.path.join(f"dataset/{dataset}/edge_sampled_2_{data_args.sample_neighbor_size}_only_train{data_args.run}.jsonl")
                     if os.path.exists(data_path):
                         with open(data_path, 'r') as file:
@@ -729,7 +726,6 @@ class LazySupervisedGraphDataset(Dataset):
                 list_data_dict.extend(task_list_data_dict)
 
 
-        # random.shuffle(list_data_dict) #时序动态图需按时间顺序训练
         rank0_print(f"Formatting inputs...Skip in lazy mode, size {len(list_data_dict)}")
         self.tokenizer = tokenizer
         self.list_data_dict = list_data_dict
@@ -882,8 +878,8 @@ def _train():
     model_args.mm_hidden_size = embeddings_dict[data_args.pretrained_embedding_type]
     
     if data_args.template == "ND":
-        data_args.structure_embedding_dim = int((data_args.sample_neighbor_size ** (data_args.use_hop + 1) - 1) / (data_args.sample_neighbor_size - 1)) # 以中心节点为开头的h跳序列化后的节点总数,包括中心节点,可看做结构embedding维度
-        model_args.mm_hidden_size += data_args.structure_embedding_dim #文本embedding与结构embedding维度之和
+        data_args.structure_embedding_dim = int((data_args.sample_neighbor_size ** (data_args.use_hop + 1) - 1) / (data_args.sample_neighbor_size - 1)) 
+        model_args.mm_hidden_size += data_args.structure_embedding_dim 
     print(f"mm_hidden_size: {model_args.mm_hidden_size}")
 
     bnb_model_from_pretrained_args = {}
@@ -921,19 +917,11 @@ def _train():
             **bnb_model_from_pretrained_args
         )
     else:
-        # model = LlagaLlamaForCausalLM.from_pretrained(
-        #     model_args.model_name_or_path,
-        #     cache_dir=training_args.cache_dir,
-        #     **bnb_model_from_pretrained_args
-        # )
         model = LlagaLlamaForCausalLM.from_pretrained(
             training_args.cache_dir,
         )
 
     model.config.use_cache = False
-
-    # if model_args.freeze_backbone:
-    #     model.model.requires_grad_(False)
 
     if training_args.bits in [4, 8]:
         from peft import prepare_model_for_kbit_training
@@ -1011,11 +999,10 @@ def _train():
         else:
             conversation_lib.default_conversation = conversation_lib.conv_templates["vicuna_v1"]
 
-    # if model_args.vision_tower is not None:
     model.get_model().initialize_graph_modules(
         model_args=model_args,
         fsdp=training_args.fsdp
-    ) # 给Graph模型初始化了mm_projector
+    ) 
 
     data_args.is_multimodal = True
 

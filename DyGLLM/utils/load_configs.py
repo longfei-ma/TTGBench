@@ -18,7 +18,7 @@ def get_link_prediction_args(is_evaluation: bool = False):
     parser.add_argument('--model_name', type=str, default='DyGFormer', help='name of the model, note that EdgeBank is only applicable for evaluation',
                         choices=['JODIE', 'DyRep', 'TGAT', 'TGN', 'CAWN', 'EdgeBank', 'TCL', 'GraphMixer', 'DyGFormer'])
     parser.add_argument('--gpu', type=int, default=0, help='number of gpu to use')
-    parser.add_argument('--num_neighbors', type=int, default=20, help='number of neighbors to sample for each node')
+    parser.add_argument('--num_neighbors', type=int, default=2, help='number of neighbors to sample for each node')
     parser.add_argument('--sample_neighbor_strategy', type=str, default='recent', choices=['uniform', 'recent', 'time_interval_aware'], help='how to sample historical neighbors')
     parser.add_argument('--time_scaling_factor', default=1e-6, type=float, help='the hyperparameter that controls the sampling preference with time interval, '
                         'a large time_scaling_factor tends to sample more on recent links, 0.0 corresponds to uniform sampling, '
@@ -34,9 +34,9 @@ def get_link_prediction_args(is_evaluation: bool = False):
                         choices=['unlimited_memory', 'time_window_memory', 'repeat_threshold_memory'])
     parser.add_argument('--time_window_mode', type=str, default='fixed_proportion', help='how to select the time window size for time window memory',
                         choices=['fixed_proportion', 'repeat_interval'])
-    parser.add_argument('--patch_size', type=int, default=1, help='patch size')
+    parser.add_argument('--patch_size', type=int, default=2, help='patch size')
     parser.add_argument('--channel_embedding_dim', type=int, default=50, help='dimension of each channel embedding')
-    parser.add_argument('--max_input_sequence_length', type=int, default=32, help='maximal length of the input sequence of each node')
+    parser.add_argument('--max_input_sequence_length', type=int, default=2, help='maximal length of the input sequence of each node')
     parser.add_argument('--learning_rate', type=float, default=0.0001, help='learning rate')
     parser.add_argument('--dropout', type=float, default=0.1, help='dropout rate')
     parser.add_argument('--num_epochs', type=int, default=50, help='number of epochs')
@@ -47,16 +47,10 @@ def get_link_prediction_args(is_evaluation: bool = False):
     parser.add_argument('--train_ratio', type=float, default=0.4, help='ratio of training set')
     parser.add_argument('--val_ratio', type=float, default=0.1, help='ratio of validation set')
     parser.add_argument('--num_runs', type=int, default=5, help='number of runs')
-    parser.add_argument('--run', type=int, default=0, help='number of run to run')
     parser.add_argument('--test_interval_epochs', type=int, default=10, help='how many epochs to perform testing once')
     parser.add_argument('--negative_sample_strategy', type=str, default='random', choices=['random', 'historical', 'inductive'],
                         help='strategy for the negative edge sampling')
     parser.add_argument('--transductive', action='store_true', default=False, help='whether or not transductive')
-    parser.add_argument('--load_best_configs', action='store_true', default=False, help='whether to load the best configurations')
-    parser.add_argument('--walklm', action='store_true', default=False, help='whether to use walklm')
-    parser.add_argument('--empty', action='store_true', default=False, help='whether to remove texts')
-    parser.add_argument('--empty_ndim', type=int, default=64, help='ndim of empty')
-    parser.add_argument('--empty_type', type=str, default='zero', help='empty type, zero, uniform or normal')
 
     try:
         args = parser.parse_args()
@@ -68,33 +62,7 @@ def get_link_prediction_args(is_evaluation: bool = False):
     if args.model_name == 'EdgeBank':
         assert is_evaluation, 'EdgeBank is only applicable for evaluation!'
 
-    if args.load_best_configs:
-        load_best_configs(args=args)
-
     return args
-
-def load_best_configs(args: argparse.Namespace):
-    """
-    load the best configurations for both link prediction and node classification tasks
-    :param args: argparse.Namespace
-    :return:
-    """
-    from hyparams import hparams
-    if args.dataset_name in hparams:
-        for hname, v in hparams[args.dataset_name][args.model_name].items():
-            setattr(args, hname, v)
-
-        # llm_name = args.llm_name
-        # if llm_name not in hparams[args.dataset_name]:
-        #     llm_name = llm_name.rsplit('-', 1)[0] # 可能是低维的
-        #     if llm_name not in hparams[args.dataset_name]:# 去除低维数值后的llm还不在使用默认的llama
-        #         llm_name = 'llama3.1_8b'
-        # if args.model_name != 'EdgeBank':
-        #     for hname, v in hparams[args.dataset_name][llm_name][args.model_name].items():
-        #         setattr(args, hname, v)
-        # else: # pass
-        #     for hname, v in hparams[args.dataset_name][args.model_name][args.negative_sample_strategy].items():
-        #         setattr(args, hname, v)
 
 
 def load_link_prediction_best_configs(args: argparse.Namespace):
@@ -296,7 +264,7 @@ def get_node_classification_args():
     parser.add_argument('--position_feat_dim', type=int, default=172, help='dimension of the position embedding')
     parser.add_argument('--patch_size', type=int, default=1, help='patch size')
     parser.add_argument('--channel_embedding_dim', type=int, default=50, help='dimension of each channel embedding')
-    parser.add_argument('--max_input_sequence_length', type=int, default=32, help='maximal length of the input sequence of each node')
+    parser.add_argument('--max_input_sequence_length', type=int, default=2, help='maximal length of the input sequence of each node')
     parser.add_argument('--learning_rate', type=float, default=0.0001, help='learning rate')
     parser.add_argument('--dropout', type=float, default=0.1, help='dropout rate')
     parser.add_argument('--num_epochs', type=int, default=100, help='number of epochs')
@@ -306,11 +274,7 @@ def get_node_classification_args():
     parser.add_argument('--train_ratio', type=float, default=0.4, help='ratio of training set')
     parser.add_argument('--val_ratio', type=float, default=0.1, help='ratio of validation set')
     parser.add_argument('--num_runs', type=int, default=5, help='number of runs')
-    parser.add_argument('--run', type=int, default=0, help='number of run to run')
     parser.add_argument('--test_interval_epochs', type=int, default=10, help='how many epochs to perform testing once')
-    parser.add_argument('--load_best_configs', action='store_true', default=False, help='whether to load the best configurations')
-    parser.add_argument('--empty', action='store_true', default=False, help='whether to remove texts')
-    parser.add_argument('--empty_ndim', type=int, default=64, help='ndim of empty')
 
     try:
         args = parser.parse_args()
@@ -318,9 +282,6 @@ def get_node_classification_args():
     except:
         parser.print_help()
         sys.exit()
-
-    # if args.load_best_configs:
-    #     load_best_configs(args=args)
 
     return args
 

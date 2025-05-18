@@ -675,9 +675,6 @@ class LazySupervisedDataset(Dataset):
         # image exist in the data
         if task_type != 'LP': 
             if 'graph' in self.list_data_dict[i]:
-                # data_dict['graph_node'] = graph_node_rep
-                # data_dict['graph_edge'] = graph_edge_index
-                # data_dict['target_node'] = target_node
                 data_dict['graph_data'] = Data(graph_node = graph_node_rep, edge_index=graph_edge_index, target_node = torch.tensor([target_node]))
 
             elif self.graph_cfg['is_graph']:
@@ -686,9 +683,6 @@ class LazySupervisedDataset(Dataset):
                 data_dict['graph_data'] = Data(graph_node = torch.zeros(3, node_feas), edge_index=torch.zeros(2, 3), target_node = torch.tensor([0]))
         else: 
             if 'graph' in self.list_data_dict[i]:
-                # data_dict['graph_node'] = graph_node_rep
-                # data_dict['graph_edge'] = graph_edge_index
-                # data_dict['target_node'] = target_node
                 data_dict['graph_data'] = {
                     'graph_1': Data(graph_node = graph_node_rep_1, edge_index=graph_edge_index_1, target_node = torch.tensor([target_node_1])), 
                     'graph_2': Data(graph_node = graph_node_rep_2, edge_index=graph_edge_index_2, target_node = torch.tensor([target_node_2]))
@@ -749,9 +743,6 @@ class LazySupervisedDataset_back(Dataset):
 
         # image exist in the data
         if 'graph' in self.list_data_dict[i]:
-            # data_dict['graph_node'] = graph_node_rep
-            # data_dict['graph_edge'] = graph_edge_index
-            # data_dict['target_node'] = target_node
             data_dict['graph_data'] = Data(graph_node = graph_node_rep, edge_index=graph_edge_index, target_node = torch.tensor([target_node]))
 
         elif self.graph_cfg['is_graph']:
@@ -784,9 +775,6 @@ class DataCollatorForSupervisedDataset(object):
         )
 
         if 'graph_data' in instances[0]:
-            # graph_node_reps = [instance['graph_node'] for instance in instances]
-            # edge_index_reps = [instance['graph_edge'] for instance in instances]
-            # target_node_reps = [instance['target_node'] for instance in instances]
             graph_data_batch = [instance['graph_data'] for instance in instances]
             # if all(x is not None and x.shape == images[0].shape for x in images):
             #     batch['images'] = torch.stack(images)

@@ -2,16 +2,19 @@
 
 model=${1:-"vicuna"}
 task=${2:-"lp"}
-dataset=${3-"FOOD"}
+dataset=${3:-"FOOD"}
 bs=${4:-16}
-emb=${5:-"sbert-64"}
+emb=${5:-"sbert"}
 cpunum=$6
+run=$7
+empty=${8:-"empty"}
 use_hop=2
 sample_size=2
-template="ND"
 num_runs=3
 
+
 if [ ${model} = "vicuna" ]; then
+  template="ND"
   projector_type="linear"
   prefix=llaga-vicuna-7b-${emb}-${use_hop}-${sample_size}-${projector_type}-projector
   model_base=lmsys/vicuna-7b-v1.5-16k
@@ -69,16 +72,10 @@ model_path="./checkpoints/${dataset}/${prefix}_${task}"
 model_base="vicuna-7b-v1.5-16k" #meta-llama/Llama-2-7b-hf
 output_path="results"
 
-taskset -c $cpunum python eval/eval_pretrain.py \
---dataset ${dataset} \
---template ${template} \
---task ${task} \
---model_path ${model_path} \
---model_base ${model_base} \
---conv_mode  ${mode} \
---pretrained_embedding_type ${emb} \
---use_hop ${use_hop} \
---sample_neighbor_size ${sample_size} \
---output_path ${output_path} \
---num_runs ${num_runs} \
---cache_dir "checkpoint/${model_base}" > logs/test_${dataset}_stage1.log 2>&1 && taskset -c $cpunum python eval/eval_res.py --dataset ${dataset} --task ${task} --res_path ${output_path} --num_runs ${num_runs} > logs/test_${dataset}_stage2.log 2>&1 
+if [ "${task}" = "lp" ];then
+  taskset -c $cpunum python eval/eval_pretrain_link.py --dataset ${dataset} --run ${run} --template ${template} --task ${task} --pretrained_embedding_type ${emb} --model_path ${model_path} --model_base ${model_base} --conv_mode  ${mode}  --use_hop ${use_hop} --sample_neighbor_size ${sample_size} --output_path ${output_path} --cache_dir "checkpoint/${model_base}" --task ${task} --template ${template} --res_path ${output_path} --llm_name ${emb} --num_runs ${num_runs}
+elif [ "${task}" = "nc" ];then
+  taskset -c $cpunum python eval/eval_pretrain_node.py --dataset ${dataset} --run ${run} --template ${template} --task ${task} --pretrained_embedding_type ${emb} --model_path ${model_path} --model_base ${model_base} --conv_mode  ${mode}  --use_hop ${use_hop} --sample_neighbor_size ${sample_size} --output_path ${output_path} --cache_dir "checkpoint/${model_base}" 
+fi
+
+taskset -c $cpunum python eval/eval_res.py --dataset ${dataset} --task ${task} --template ${template} --res_path ${output_path} --llm_name ${emb} --num_runs ${num_runs}

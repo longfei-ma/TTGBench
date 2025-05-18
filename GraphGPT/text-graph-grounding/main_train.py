@@ -45,11 +45,11 @@ def assure_dir(path):
 
 
 def main(args):
-    dataset = DataHelper(arr_edge_index, args) #arr_edge_index Graph结构的edge_index，DataHelper迭代时每次提供的数据是源节点和其n个邻居节点
+    dataset = DataHelper(arr_edge_index, args) 
     in_g = Data(x=node_f, edge_index=edge_index)
     in_g.graph_node = node_f
     in_g = in_g.to(device)
-    save_dir = "./res/{}/".format(args.data_name) #保存模型和日志的目录
+    save_dir = "./res/{}/".format(args.data_name) 
     
     logger = Logger(args, save_dir)
     for run in range(args.num_runs):
@@ -60,7 +60,6 @@ def main(args):
             model_save_name = model_save_name.replace(args.llm_name, 'empty')
         model = CLIP(args).to(device)
         model.train()
-        # node_f节点特征，edge_index静态图的结构edge_index,构建graph数据对象in_g，包含全量节点特征 node_f 和边信息 edge_index
         for j in range(args.epoch_num):
             epoch_loss = 0.0
             loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=10)
@@ -132,7 +131,6 @@ if __name__ == "__main__":
     parser.add_argument("--att_norm", type=bool, default=True)
     parser.add_argument("--head", type=int, default=8)
     parser.add_argument("--if_pos", type=bool, default=False)
-    parser.add_argument('--empty', action='store_true', default=False)
 
     args = parser.parse_args()
 
@@ -141,12 +139,11 @@ if __name__ == "__main__":
 
     num_nodes = 0
     tit_list = []
-    text_arr = np.load(f'data/{args.data_name}/raw_node.npy', allow_pickle=True)#节点文本数据
+    text_arr = np.load(f'data/{args.data_name}/raw_node.npy', allow_pickle=True)
     text_arr[text_arr==None] = ''
     if args.empty:
         text_arr[:] = ''
 
-    # 原始节点文本没处理加零行，添加第零行
     text_arr = np.insert(text_arr, 0, '')
     tit_dict = {str(index): value for index, value in enumerate(text_arr)}
     new_dict = {}
@@ -154,18 +151,16 @@ if __name__ == "__main__":
     for i in range(len(tit_dict)):
         num_nodes += 1
         new_dict[i] = tit_dict[str(i)] 
-    # new_dict是整数节点索引到节点文本的存储字典
+    
     print("num_nodes", num_nodes)
 
-    edge_index = np.load("./data/{}/{}_edge.npy".format(args.data_name, args.data_name))#(2, 91140)，静态图的结构edge_index,边节点号已经加1了
+    edge_index = np.load("./data/{}/{}_edge.npy".format(args.data_name, args.data_name))
 
     arr_edge_index = edge_index 
 
     edge_index = torch.from_numpy(edge_index).to(device)
-    # 加载的节点embedding矩阵已经添加第零行了，与edge_index节点编号一致
-    node_f = np.load("./data/{}/{}_{}_node.npy".format(args.data_name, args.llm_name, args.data_name))#(25120, 64)节点的embedding矩阵
-    if args.empty:
-        node_f = np.zeros_like(node_f)
+    
+    node_f = np.load("./data/{}/{}_{}_node.npy".format(args.data_name, args.llm_name, args.data_name))
 
     node_f = preprocessing.StandardScaler().fit_transform(node_f)
     node_f = torch.from_numpy(node_f).to(torch.float).to(device)

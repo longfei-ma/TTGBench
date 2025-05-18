@@ -49,7 +49,6 @@ class Data:
         self.random_state = np.random.RandomState(seed)
 
     def __getitem__(self, index):
-        # 通过索引访问元素
         return (self.src_node_ids[index].item(), self.dst_node_ids[index].item(), self.node_interact_times[index].item(), self.edge_ids[index].item())
     
     def __len__(self):
@@ -328,7 +327,6 @@ def get_idx_data_loader(indices_list: list, batch_size: int, shuffle: bool):
 def get_link_prediction_data(args):
     node_raw_features = np.load(f'../DyGLLM/processed_data/{args.dataset_name}/{args.llm_name}_{args.dataset_name}_node.npy')
 
-    # 加载结构数据，节点和边索引已加1了
     graph_df = pd.read_csv(f'../DyGLLM/processed_data/{args.dataset_name}/ml_{args.dataset_name}.csv')
     val_time, test_time = list(np.quantile(graph_df.ts, [args.train_ratio, (args.train_ratio+args.val_ratio)]))
 
@@ -433,8 +431,6 @@ def get_train_edge_index(train_data):
         G.add_edge(u, v)
     
     edge_list = list(G.edges())
-
-    # 将边转换为 edge_index 格式，节点号是加1后的
     edge_index = torch.tensor(edge_list).T
     return to_undirected(edge_index)
 
@@ -446,8 +442,8 @@ def generate_multi_hop_x(node_raw_features, edge_index):
     deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0
     norm = deg_inv_sqrt[row] * deg_inv_sqrt[col]
     mp = MP().cuda()
-    multi_hop_x = [x.clone()]  # 包含初始嵌入 (0 跳)
-    current_x = x.clone()#.to(mp.device)
+    multi_hop_x = [x.clone()]
+    current_x = x.clone()
     with torch.no_grad():
         for i in range(4):
             current_x = mp.propagate(edge_index, x=current_x, norm=norm)

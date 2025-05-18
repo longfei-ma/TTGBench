@@ -1,6 +1,6 @@
-# Project Name
+# TTGBench
 
-This repository contains the implementation of various methods for enhancing and predicting tasks using Large Language Models (LLMs) on dynamic graph datasets. The codebase is organized to support both LLMs-as-Enhancers and LLMs-as-Predictors approaches. This README provides instructions on how to set up and use the code.
+This is the source code for NeurIPS 2025 Datasets & Benchmarks submitted paper [TTGBench: Text-attributed Temporal Graph Benchmark for Temporal Graph Representation Learning with Large Language Models](https://openreview.net/forum?id=zae0fR82lS).
 
 ## Prerequisites
 
@@ -11,7 +11,7 @@ This repository contains the implementation of various methods for enhancing and
 
 ## Dataset Setup
 
-1. Download the required dataset from according to specifications(https://ttgbench.netlify.app ).
+1. Download the required dataset from according to specifications from our supported online [leaderboard](https://ttgbench.netlify.app).
 2. Place the downloaded dataset files in the `datasets/` directory.
 
 ## Usage Instructions
@@ -31,7 +31,7 @@ cd DyGLLM
 Run the link prediction training script with the following command:
 
 ```bash
-bash scripts/train_link_ablation.sh FOOD TGN sbert 0 72 2
+bash scripts/train_link.sh FOOD TGN sbert 0 72
 ```
 
 #### 1.2 Link Prediction Testing
@@ -39,7 +39,7 @@ bash scripts/train_link_ablation.sh FOOD TGN sbert 0 72 2
 Run the link prediction testing script:
 
 ```bash
-bash scripts/test_link_abla.sh FOOD 0 72 sbert
+bash scripts/test_link.sh FOOD 0 72 sbert
 ```
 
 #### 1.3 Node Classification Training
@@ -47,7 +47,7 @@ bash scripts/test_link_abla.sh FOOD 0 72 sbert
 Run the node classification training script:
 
 ```bash
-bash scripts/train_node_simple.sh Beeradvocate JODIE sbert 0 72
+bash scripts/train_node.sh Beeradvocate JODIE sbert 0 72
 ```
 
 #### 1.4 Node Classification Testing
@@ -55,12 +55,10 @@ bash scripts/train_node_simple.sh Beeradvocate JODIE sbert 0 72
 Run the node classification testing script:
 
 ```bash
-bash scripts/test_node_dataset.sh IMDB 0 sbert 72
+bash scripts/test_node.sh IMDB 0 sbert 72
 ```
 
 ### 2. LLMs-as-Predictors
-
-This category includes three methods: **LLaGA**, **GraphGPT**, and **TempPrompt**.
 
 #### 2.1 LLaGA
 
@@ -84,7 +82,7 @@ cd LLaGA
 - **Testing**:
 
   ```bash
-  CUDA_VISIBLE_DEVICES=2 nohup bash scripts/test1_run.sh vicuna lp FOOD 32 sbert 72 0 sbert &
+  CUDA_VISIBLE_DEVICES=2 nohup bash scripts/test.sh vicuna lp FOOD 32 sbert 72 0 sbert &
   ```
 
 ##### LLaGA-HO (High-Order)
@@ -98,7 +96,7 @@ cd LLaGA
 - **Testing**:
 
   ```bash
-  CUDA_VISIBLE_DEVICES=2 nohup bash scripts/test1_run.sh vicuna_4hop lp FOOD 32 sbert 72 0 sbert &
+  CUDA_VISIBLE_DEVICES=2 nohup bash scripts/test.sh vicuna_4hop lp FOOD 32 sbert 72 0 sbert &
   ```
 
 #### 2.2 GraphGPT
@@ -123,17 +121,22 @@ cd GraphGPT
 
 #### 2.3 TempPrompt
 
-In the `GraphGPT` directory, run the TempPrompt evaluation:
+Navigate to the `TempPrompt` directory:
 
 ```bash
-CUDA_VISIBLE_DEVICES=3 nohup bash scripts/eval_script/temprompt1.sh FOOD lp 72 0 nondst2 sbert &
+cd TempPrompt
+```
+
+Run the TempPrompt evaluation:
+
+```bash
+CUDA_VISIBLE_DEVICES=3 nohup bash scripts/temprompt.sh FOOD lp 72 0 nondst2 sbert &
 ```
 
 ## Notes
 
 - Ensure that the dataset name and task parameters are correctly set for your specific use case.
 - The scripts assume access to a CUDA-enabled GPU. Modify `CUDA_VISIBLE_DEVICES` as needed based on your hardware configuration.
-- For background execution, the `nohup` command is used to prevent process termination upon terminal closure.
 - Check the `scripts/` directory for additional configuration options or script details.
 
 ## Contributing

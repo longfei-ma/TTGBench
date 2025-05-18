@@ -32,7 +32,6 @@ class Data:
         self.num_unique_nodes = len(self.unique_node_ids)
 
     def __getitem__(self, index):
-        # 通过索引访问元素
         return (self.src_node_ids[index].item(), self.dst_node_ids[index].item(), self.node_interact_times[index].item())
 
 
@@ -230,38 +229,26 @@ class NegativeEdgeSampler(object):
 
 
 def get_fix_shape_subgraph_sequence_fast(node_idx, recent_neighbors, k_hop, sample_size, avoid_idx=None):
-    """
-    动态图版本的固定形状子图序列生成方法。
-    :param edge_list: 动态图的邻接表，每个节点的邻居按时间顺序存储。
-    :param node_idx: 目标节点索引。
-    :param k_hop: 采样的跳数。
-    :param sample_size: 每层采样的邻居数量。
-    :param avoid_idx: 需要避免的节点索引（可选）。
-    :return: 固定长度的节点序列。
-    """
     assert k_hop > 0 and sample_size > 0
 
-    neighbors = [[node_idx]]  # 初始化邻居列表，包含目标节点
+    neighbors = [[node_idx]]  
 
     for t in range(k_hop):
-        last_hop = neighbors[-1]  # 获取上一跳的邻居
-        current_hop = []  # 初始化当前跳的邻居
+        last_hop = neighbors[-1]  
+        current_hop = []  
 
         for i in last_hop:
             if i == DEFAULT_GRAPH_PAD_ID:
                 current_hop.extend([DEFAULT_GRAPH_PAD_ID] * sample_size)
                 continue
 
-            # 获取节点 i 的邻居，邻居已按时间顺序排序
             node_neighbor = list(recent_neighbors[i])
             
-            # 如果是第一跳且需要避免某个节点，则从邻居中移除
             if t == 0 and avoid_idx is not None and avoid_idx in node_neighbor:
                 node_neighbor.remove(avoid_idx)
 
-            # 采样邻居
             if len(node_neighbor) >= sample_size:
-                sampled_neighbor = node_neighbor[-sample_size:]  # 只取最近的 sample_size 个邻居
+                sampled_neighbor = node_neighbor[-sample_size:]
             else:
                 sampled_neighbor = node_neighbor + [DEFAULT_GRAPH_PAD_ID] * (sample_size - len(node_neighbor))
 
@@ -269,46 +256,32 @@ def get_fix_shape_subgraph_sequence_fast(node_idx, recent_neighbors, k_hop, samp
 
         neighbors.append(current_hop)
 
-    # 展平邻居列表
     node_sequence = [n for hop in neighbors for n in hop]
     return node_sequence
 
 def get_temporal_subgraph_sequence(node_idx, ts, full_neighbor_sampler, k_hop, sample_size, avoid_idx=None):
-    """
-    寻找动态图中节点u在时刻t之前的多跳邻居。
-    :param edge_list: 动态图的邻接表，每个节点的邻居按时间顺序存储。
-    :param node_idx: 目标节点索引。
-    :param k_hop: 采样的跳数。
-    :param sample_size: 每层采样的邻居数量。
-    :param avoid_idx: 需要避免的节点索引（可选）。
-    :return: 固定长度的节点序列。
-    """
     assert k_hop > 0 and sample_size > 0
 
-    neighbors = [[node_idx]]  # 初始化邻居列表，包含目标节点
-
+    neighbors = [[node_idx]]  
     for t in range(k_hop):
-        last_hop = neighbors[-1]  # 获取上一跳的邻居
-        current_hop = []  # 初始化当前跳的邻居
+        last_hop = neighbors[-1]  
+        current_hop = []  
 
         for i in last_hop:
             if i == DEFAULT_GRAPH_PAD_ID:
                 current_hop.extend([DEFAULT_GRAPH_PAD_ID] * sample_size)
                 continue
 
-            # 获取节点 i 的邻居，邻居已按时间顺序排序
             node_neighbor,node_edge,node_time  = full_neighbor_sampler.get_historical_neighbors(node_ids=[i],
                                                                node_interact_times=[ts],
                                                                num_neighbors=sample_size)
             node_neighbor = node_neighbor[0].tolist()
             
-            # 如果是第一跳且需要避免某个节点，则从邻居中移除
             if t == 0 and avoid_idx is not None and avoid_idx in node_neighbor:
                 node_neighbor.remove(avoid_idx)
 
-            # 采样邻居
             if len(node_neighbor) >= sample_size:
-                sampled_neighbor = node_neighbor[-sample_size:]  # 只取最近的 sample_size 个邻居
+                sampled_neighbor = node_neighbor[-sample_size:] 
             else:
                 sampled_neighbor = node_neighbor + [DEFAULT_GRAPH_PAD_ID] * (sample_size - len(node_neighbor))
 
@@ -316,7 +289,6 @@ def get_temporal_subgraph_sequence(node_idx, ts, full_neighbor_sampler, k_hop, s
 
         neighbors.append(current_hop)
 
-    # 展平邻居列表
     node_sequence = [n for hop in neighbors for n in hop]
     return node_sequence
 
@@ -688,41 +660,7 @@ if __name__ == '__main__':
     
     for run in range(args.num_runs):
         set_random_seed(seed=run)
-        # result = []
-        # recent_neighbors = defaultdict(lambda: deque(maxlen=sample_size))
-        # # 处理训练集,这么处理与DyGLib本质一样没问题
-        # for u, v, t in train_data:
-        #     # 1. 处理positive edge
-        #     js = {}
-        #     center_ids = [u, v]
-        #     graph = []
-        #     src = get_fix_shape_subgraph_sequence_fast(u, recent_neighbors, k_hop, sample_size)
-        #     graph.append(src)
-        #     dst = get_fix_shape_subgraph_sequence_fast(v, recent_neighbors, k_hop, sample_size)
-        #     graph.append(dst)
-        #     # 更新节点u和v的邻居
-        #     recent_neighbors[u].append(v)
-        #     recent_neighbors[v].append(u)
-        #     js["id"] = center_ids
-        #     js["graph"] = graph
-        #     js["conversations"] = [{"from": "human", "value": f"{dataset_name}_pos_edge"}, {"from": "gpt", "value": "yes"}]
-        #     result.append(js)
-        #     # 2.处理negative edge
-        #     _, neg_dst_id = train_neg_edge_sampler.sample(size=1)
-        #     neg_dst_id = neg_dst_id.item()
-        #     dst = get_fix_shape_subgraph_sequence_fast(neg_dst_id, recent_neighbors, k_hop, sample_size)
-        #     js = {}
-        #     js["id"] = [u, neg_dst_id]
-        #     js["graph"] = [src, dst]
-        #     js["conversations"] = [{"from": "human", "value": f"{dataset_name}_neg_edge"}, {"from": "gpt", "value": "no"}]
-        #     result.append(js)
-
-        # filename = f"edge_sampled_{k_hop}_{sample_size}_only_train{run}.jsonl"
-        # with open(f'dataset/{dataset_name}/{filename}', "w") as f:
-        #     for item in result:
-        #         f.write(json.dumps(item) + "\n")
-
-        # 1.transductive testing set处理
+        # 1.transductive testing set
         result = []
         evaluate_idx_data_loader_tqdm = tqdm(test_idx_data_loader, ncols=120)
         for batch_idx, evaluate_data_indices in enumerate(evaluate_idx_data_loader_tqdm):
@@ -741,7 +679,7 @@ if __name__ == '__main__':
             js["graph"] = graph
             js["conversations"] = [{"from": "human", "value": f"{dataset_name}_pos_edge"}, {"from": "gpt", "value": "yes"}]
             result.append(js)
-            # 2.处理negative edge
+            # 2.negative edge
             _, neg_dst_id = test_neg_edge_sampler.sample(size=1)
             neg_dst_id = neg_dst_id.item()
             dst = get_temporal_subgraph_sequence(neg_dst_id, t, full_neighbor_sampler, k_hop, sample_size)
@@ -756,7 +694,7 @@ if __name__ == '__main__':
                 f.write(json.dumps(item) + "\n")
 
 
-        # 2.inductive testing set处理
+        # 2.inductive testing set
         result = []
         evaluate_idx_data_loader_tqdm = tqdm(new_node_test_idx_data_loader, ncols=120)
         for batch_idx, evaluate_data_indices in enumerate(evaluate_idx_data_loader_tqdm):
@@ -775,7 +713,7 @@ if __name__ == '__main__':
             js["graph"] = graph
             js["conversations"] = [{"from": "human", "value": f"{dataset_name}_pos_edge"}, {"from": "gpt", "value": "yes"}]
             result.append(js)
-            # 2.处理negative edge
+            # 2.negative edge
             _, neg_dst_id = new_node_test_neg_edge_sampler.sample(size=1)
             neg_dst_id = neg_dst_id.item()
             dst = get_temporal_subgraph_sequence(neg_dst_id, t, full_neighbor_sampler, k_hop, sample_size)

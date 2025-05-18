@@ -320,8 +320,8 @@ def evaluate_model_node_classification(model_name: str, model: nn.Module, neighb
             batch_src_node_ids, batch_dst_node_ids, batch_node_interact_times, batch_edge_ids, batch_labels = \
                 evaluate_data.src_node_ids[evaluate_data_indices],  evaluate_data.dst_node_ids[evaluate_data_indices], \
                 evaluate_data.node_interact_times[evaluate_data_indices], evaluate_data.edge_ids[evaluate_data_indices], evaluate_data.labels[evaluate_data_indices]
-            if batch_labels.ndim<2: # Food和IMDB没有label异常值
-                valid_mask = batch_labels>=0 #Amazon有异常值-1排除掉
+            if batch_labels.ndim<2: # 
+                valid_mask = batch_labels>=0 #
                 batch_labels = batch_labels[valid_mask]
                 batch_src_node_ids, batch_dst_node_ids, batch_node_interact_times, batch_edge_ids = batch_src_node_ids[valid_mask], batch_dst_node_ids[valid_mask], batch_node_interact_times[valid_mask], batch_edge_ids[valid_mask]
 

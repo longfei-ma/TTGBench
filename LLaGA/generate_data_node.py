@@ -16,23 +16,21 @@ class IrregularList:
         self.data = data
     
     def __getitem__(self, index):
-        """支持布尔向量索引，根据类型返回对应子集"""
         if isinstance(index, (list, np.ndarray)):
             if len(index) != len(self.data):
-                raise ValueError("布尔向量的长度必须与数据长度一致")
-            if all(isinstance(x.item(), bool) for x in index): # 布尔向量索引
+                raise ValueError("The length of the boolean vector must match the length of the data!")
+            if all(isinstance(x.item(), bool) for x in index): 
                 selected = [self.data[i] for i, flag in enumerate(index) if flag]
-            elif all(isinstance(x.item(), int) for x in index): # 整数向量索引
+            elif all(isinstance(x.item(), int) for x in index): 
                 selected = [self.data[i] for i in index]
             return selected
         elif isinstance(index, int):
             # 单个整数索引
             return self.data[index]
         else:
-            raise TypeError("索引必须是布尔向量或整数")
+            raise TypeError("The index must be a boolean vector or an integer!")
     
     def __len__(self):
-        """返回数据的长度"""
         return len(self.data)
 
 class Data:
@@ -57,7 +55,6 @@ class Data:
         
 
     def __getitem__(self, index):
-        # 通过索引访问元素
         return (self.src_node_ids[index].item(), self.dst_node_ids[index].item(), self.node_interact_times[index].item(), self.labels[index])
 
 
@@ -255,38 +252,26 @@ class NegativeEdgeSampler(object):
 
 
 def get_fix_shape_subgraph_sequence_fast(node_idx, recent_neighbors, k_hop, sample_size, avoid_idx=None):
-    """
-    动态图版本的固定形状子图序列生成方法。
-    :param edge_list: 动态图的邻接表，每个节点的邻居按时间顺序存储。
-    :param node_idx: 目标节点索引。
-    :param k_hop: 采样的跳数。
-    :param sample_size: 每层采样的邻居数量。
-    :param avoid_idx: 需要避免的节点索引（可选）。
-    :return: 固定长度的节点序列。
-    """
     assert k_hop > 0 and sample_size > 0
 
-    neighbors = [[node_idx]]  # 初始化邻居列表，包含目标节点
+    neighbors = [[node_idx]]  
 
     for t in range(k_hop):
-        last_hop = neighbors[-1]  # 获取上一跳的邻居
-        current_hop = []  # 初始化当前跳的邻居
+        last_hop = neighbors[-1]  
+        current_hop = []  
 
         for i in last_hop:
             if i == DEFAULT_GRAPH_PAD_ID:
                 current_hop.extend([DEFAULT_GRAPH_PAD_ID] * sample_size)
                 continue
 
-            # 获取节点 i 的邻居，邻居已按时间顺序排序
             node_neighbor = list(recent_neighbors[i])
             
-            # 如果是第一跳且需要避免某个节点，则从邻居中移除
             if t == 0 and avoid_idx is not None and avoid_idx in node_neighbor:
                 node_neighbor.remove(avoid_idx)
 
-            # 采样邻居
             if len(node_neighbor) >= sample_size:
-                sampled_neighbor = node_neighbor[-sample_size:]  # 只取最近的 sample_size 个邻居
+                sampled_neighbor = node_neighbor[-sample_size:]  
             else:
                 sampled_neighbor = node_neighbor + [DEFAULT_GRAPH_PAD_ID] * (sample_size - len(node_neighbor))
 
@@ -299,41 +284,29 @@ def get_fix_shape_subgraph_sequence_fast(node_idx, recent_neighbors, k_hop, samp
     return node_sequence
 
 def get_temporal_subgraph_sequence(node_idx, ts, full_neighbor_sampler, k_hop, sample_size, avoid_idx=None):
-    """
-    寻找动态图中节点u在时刻t之前的多跳邻居。
-    :param edge_list: 动态图的邻接表，每个节点的邻居按时间顺序存储。
-    :param node_idx: 目标节点索引。
-    :param k_hop: 采样的跳数。
-    :param sample_size: 每层采样的邻居数量。
-    :param avoid_idx: 需要避免的节点索引（可选）。
-    :return: 固定长度的节点序列。
-    """
     assert k_hop > 0 and sample_size > 0
 
-    neighbors = [[node_idx]]  # 初始化邻居列表，包含目标节点
+    neighbors = [[node_idx]]  
 
     for t in range(k_hop):
-        last_hop = neighbors[-1]  # 获取上一跳的邻居
-        current_hop = []  # 初始化当前跳的邻居
+        last_hop = neighbors[-1]  
+        current_hop = []  
 
         for i in last_hop:
             if i == DEFAULT_GRAPH_PAD_ID:
                 current_hop.extend([DEFAULT_GRAPH_PAD_ID] * sample_size)
                 continue
 
-            # 获取节点 i 的邻居，邻居已按时间顺序排序
             node_neighbor,node_edge,node_time = full_neighbor_sampler.get_historical_neighbors(node_ids=[i],
                                                                node_interact_times=[ts],
                                                                num_neighbors=sample_size)
             node_neighbor = node_neighbor[0].tolist()
 
-            # 如果是第一跳且需要避免某个节点，则从邻居中移除
             if t == 0 and avoid_idx is not None and avoid_idx in node_neighbor:
                 node_neighbor.remove(avoid_idx)
 
-            # 采样邻居
             if len(node_neighbor) >= sample_size:
-                sampled_neighbor = node_neighbor[-sample_size:]  # 只取最近的 sample_size 个邻居
+                sampled_neighbor = node_neighbor[-sample_size:] 
             else:
                 sampled_neighbor = node_neighbor + [DEFAULT_GRAPH_PAD_ID] * (sample_size - len(node_neighbor))
 
@@ -341,7 +314,6 @@ def get_temporal_subgraph_sequence(node_idx, ts, full_neighbor_sampler, k_hop, s
 
         neighbors.append(current_hop)
 
-    # 展平邻居列表
     node_sequence = [n for hop in neighbors for n in hop]
     return node_sequence
 
@@ -632,7 +604,7 @@ if __name__ == '__main__':
     train_ratio =  0.4
     val_ratio = 0.1
 
-    graph_df = pd.read_csv(f'dataset/{dataset_name}/ml_{dataset_name}.csv') # 结构数据对所有语言模型都一样
+    graph_df = pd.read_csv(f'dataset/{dataset_name}/ml_{dataset_name}.csv')
     val_time, test_time = list(np.quantile(graph_df.ts, [train_ratio, (train_ratio+val_ratio)]))
 
     src_node_ids = graph_df.u.values#.astype(np.longlong)
@@ -640,7 +612,7 @@ if __name__ == '__main__':
     node_interact_times = graph_df.ts.values#.astype(np.float64)
     edge_ids = graph_df.idx.values#.astype(np.longlong)
 
-    labels = json.load(open(f'../DyGLLM/DG_data/{dataset_name}/{dataset_name}_labels_text.json'))#标签明文
+    labels = json.load(open(f'../DyGLLM/DG_data/{dataset_name}/{dataset_name}_labels_text.json'))
     labels = IrregularList(labels)
 
     full_data = Data(src_node_ids=src_node_ids, dst_node_ids=dst_node_ids, node_interact_times=node_interact_times, edge_ids=edge_ids, labels=labels)
@@ -661,7 +633,7 @@ if __name__ == '__main__':
     test_data = Data(src_node_ids=src_node_ids[test_mask], dst_node_ids=dst_node_ids[test_mask],
                      node_interact_times=node_interact_times[test_mask], edge_ids=edge_ids[test_mask], labels=labels[test_mask])
     
-    full_neighbor_sampler = get_neighbor_sampler(data=full_data, sample_neighbor_strategy='recent',#与DyGLib保持一致
+    full_neighbor_sampler = get_neighbor_sampler(data=full_data, sample_neighbor_strategy='recent',
                                                  time_scaling_factor=1e-6, seed=1)
     test_idx_data_loader = get_idx_data_loader(indices_list=list(range(len(test_data.src_node_ids))), batch_size=args.batch_size, shuffle=False)
 
@@ -688,11 +660,9 @@ if __name__ == '__main__':
         set_random_seed(seed=run)
         result = []
         recent_neighbors = defaultdict(lambda: deque(maxlen=sample_size))
-        # 处理训练集,这么处理与DyGLib本质一样没问题
         for u, v, t, y in train_data:
             js = {}
             graph = get_fix_shape_subgraph_sequence_fast(u, recent_neighbors, k_hop, sample_size)
-            # 更新节点u和v的邻居
             recent_neighbors[u].append(v)
             recent_neighbors[v].append(u)
             js["id"] = u
@@ -706,7 +676,6 @@ if __name__ == '__main__':
             for item in result:
                 f.write(json.dumps(item) + "\n")
 
-        # testing set处理
         result = []
         evaluate_idx_data_loader_tqdm = tqdm(test_idx_data_loader, ncols=120)
         for batch_idx, evaluate_data_indices in enumerate(evaluate_idx_data_loader_tqdm):

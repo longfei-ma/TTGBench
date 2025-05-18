@@ -1,7 +1,11 @@
 from torch.utils.data import Dataset, DataLoader
+from sklearn.preprocessing import MultiLabelBinarizer
+from utils.utils import set_random_seed
 import numpy as np
 import random
 import pandas as pd
+import json
+import ast
 
 
 class CustomizedDataset(Dataset):
@@ -64,7 +68,7 @@ class Data:
         self.num_unique_nodes = len(self.unique_node_ids)
 
 
-def get_link_prediction_data(dataset_name: str, val_ratio: float, test_ratio: float, llm_name: str):
+def get_link_prediction_data(dataset_name: str, train_ratio: float, val_ratio: float, llm_name: str, transductive=False, args=None):
     """
     generate data for link prediction task (inductive & transductive settings)
     :param dataset_name: str, dataset name
@@ -73,16 +77,13 @@ def get_link_prediction_data(dataset_name: str, val_ratio: float, test_ratio: fl
     :return: node_raw_features, edge_raw_features, (np.ndarray),
             full_data, train_data, val_data, test_data, new_node_val_data, new_node_test_data, (Data object)
     """
-    # Load data and train val test split
-    graph_df = pd.read_csv('./processed_data/{}/ml_{}.csv'.format(dataset_name, dataset_name))
-    edge_raw_features = np.load('./processed_data/{}/{}_{}.npy'.format(dataset_name, llm_name, dataset_name))
-    node_raw_features = np.load('./processed_data/{}/{}_{}_node.npy'.format(dataset_name, llm_name, dataset_name))
-
-    NODE_FEAT_DIM = node_raw_features.shape[-1]
-    EDGE_FEAT_DIM = edge_raw_features.shape[-1]
     
+    graph_df = pd.read_csv(f'../datasets/{dataset_name}/ml_{dataset_name}.csv')
+    edge_raw_features = np.load(f'../datasets/{dataset_name}/{llm_name}_{dataset_name}.npy')
+    node_raw_features = np.load(f'../datasets/{dataset_name}/{llm_name}_{dataset_name}_node.npy')
+
     # get the timestamp of validate and test set
-    val_time, test_time = list(np.quantile(graph_df.ts, [(1 - val_ratio - test_ratio), (1 - test_ratio)]))
+    val_time, test_time = list(np.quantile(graph_df.ts, [train_ratio, (train_ratio+val_ratio)]))
 
     src_node_ids = graph_df.u.values.astype(np.longlong)
     dst_node_ids = graph_df.i.values.astype(np.longlong)
@@ -134,6 +135,10 @@ def get_link_prediction_data(dataset_name: str, val_ratio: float, test_ratio: fl
     new_node_test_mask = np.logical_and(test_mask, edge_contains_new_node_mask)
 
     # validation and test data
+    if transductive:
+        val_mask = np.logical_and(~edge_contains_new_node_mask, val_mask)
+        test_mask = np.logical_and(~edge_contains_new_node_mask, test_mask)
+
     val_data = Data(src_node_ids=src_node_ids[val_mask], dst_node_ids=dst_node_ids[val_mask],
                     node_interact_times=node_interact_times[val_mask], edge_ids=edge_ids[val_mask], labels=labels[val_mask])
 
@@ -148,6 +153,8 @@ def get_link_prediction_data(dataset_name: str, val_ratio: float, test_ratio: fl
     new_node_test_data = Data(src_node_ids=src_node_ids[new_node_test_mask], dst_node_ids=dst_node_ids[new_node_test_mask],
                               node_interact_times=node_interact_times[new_node_test_mask],
                               edge_ids=edge_ids[new_node_test_mask], labels=labels[new_node_test_mask])
+    
+    print(f'transductive testing interactions: {test_data.num_interactions}\ninductive testing interactions: {new_node_test_data.num_interactions}')
 
     print("The dataset has {} interactions, involving {} different nodes".format(full_data.num_interactions, full_data.num_unique_nodes))
     print("The training dataset has {} interactions, involving {} different nodes".format(
@@ -165,7 +172,26 @@ def get_link_prediction_data(dataset_name: str, val_ratio: float, test_ratio: fl
     return node_raw_features, edge_raw_features, full_data, train_data, val_data, test_data, new_node_val_data, new_node_test_data
 
 
-def get_node_classification_data(dataset_name: str, val_ratio: float, test_ratio: float):
+def convert_labels_to_fixed_length(label_lists, C):
+    """
+    Convert a list of variable-length label lists to a NumPy array of length C
+
+    Parameters:
+    - label_lists: List of sample label lists (list of lists), where each sublist contains the labels for a sample
+    - C: Total number of labels (int)
+
+    Returns:
+    - fixed_labels: Fixed-length label matrix (ndarray, n_samples x C)
+    """
+    n_samples = len(label_lists)
+    fixed_labels = np.zeros((n_samples, C), dtype=int)
+    
+    for i, labels in enumerate(label_lists):
+        fixed_labels[i, labels] = 1
+    
+    return fixed_labels
+
+def get_node_classification_data(dataset_name: str, train_ratio: float, val_ratio: float, llm_name: str, args=None):
     """
     generate data for node classification task
     :param dataset_name: str, dataset name
@@ -174,32 +200,33 @@ def get_node_classification_data(dataset_name: str, val_ratio: float, test_ratio
     :return: node_raw_features, edge_raw_features, (np.ndarray),
             full_data, train_data, val_data, test_data, (Data object)
     """
-    # Load data and train val test split
-    graph_df = pd.read_csv('./processed_data/{}/ml_{}.csv'.format(dataset_name, dataset_name))
-    edge_raw_features = np.load('./processed_data/{}/ml_{}.npy'.format(dataset_name, dataset_name))
-    node_raw_features = np.load('./processed_data/{}/ml_{}_node.npy'.format(dataset_name, dataset_name))
+    graph_df = pd.read_csv(f'../datasets/{dataset_name}/ml_{dataset_name}.csv') 
+    edge_raw_features = np.load(f'../datasets/{dataset_name}/{llm_name}_{dataset_name}.npy')
+    node_raw_features = np.load(f'../datasets/{dataset_name}/{llm_name}_{dataset_name}_node.npy')
 
-    NODE_FEAT_DIM = EDGE_FEAT_DIM = 172
-    assert NODE_FEAT_DIM >= node_raw_features.shape[1], f'Node feature dimension in dataset {dataset_name} is bigger than {NODE_FEAT_DIM}!'
-    assert EDGE_FEAT_DIM >= edge_raw_features.shape[1], f'Edge feature dimension in dataset {dataset_name} is bigger than {EDGE_FEAT_DIM}!'
-    # padding the features of edges and nodes to the same dimension (172 for all the datasets)
-    if node_raw_features.shape[1] < NODE_FEAT_DIM:
-        node_zero_padding = np.zeros((node_raw_features.shape[0], NODE_FEAT_DIM - node_raw_features.shape[1]))
-        node_raw_features = np.concatenate([node_raw_features, node_zero_padding], axis=1)
-    if edge_raw_features.shape[1] < EDGE_FEAT_DIM:
-        edge_zero_padding = np.zeros((edge_raw_features.shape[0], EDGE_FEAT_DIM - edge_raw_features.shape[1]))
-        edge_raw_features = np.concatenate([edge_raw_features, edge_zero_padding], axis=1)
+    with open(f'DG_data/{dataset_name}/{dataset_name}_unique_labels.json', 'r', encoding="utf-8") as f: 
+        unique_labels = json.load(f)
 
-    assert NODE_FEAT_DIM == node_raw_features.shape[1] and EDGE_FEAT_DIM == edge_raw_features.shape[1], 'Unaligned feature dimensions after feature padding!'
+    with open(f'DG_data/{dataset_name}/{dataset_name}_labels.json', 'r', encoding="utf-8") as f: 
+        labels = json.load(f)
+    if dataset_name in ['FOOD', 'IMDB']: # multi-label, 
+        fixed_labels = np.zeros((len(labels), len(unique_labels)), dtype=int)
+        for i, label in enumerate(labels):
+            fixed_labels[i, label] = 1
+        raw_labels = labels
+        labels = fixed_labels
+    else:
+        raw_labels = labels
+        labels = np.array(labels)
 
+    
     # get the timestamp of validate and test set
-    val_time, test_time = list(np.quantile(graph_df.ts, [(1 - val_ratio - test_ratio), (1 - test_ratio)]))
+    val_time, test_time = list(np.quantile(graph_df.ts, [train_ratio, (train_ratio+val_ratio)]))
 
     src_node_ids = graph_df.u.values.astype(np.longlong)
     dst_node_ids = graph_df.i.values.astype(np.longlong)
     node_interact_times = graph_df.ts.values.astype(np.float64)
     edge_ids = graph_df.idx.values.astype(np.longlong)
-    labels = graph_df.label.values
 
     # The setting of seed follows previous works
     random.seed(2020)
@@ -217,4 +244,4 @@ def get_node_classification_data(dataset_name: str, val_ratio: float, test_ratio
     test_data = Data(src_node_ids=src_node_ids[test_mask], dst_node_ids=dst_node_ids[test_mask],
                      node_interact_times=node_interact_times[test_mask], edge_ids=edge_ids[test_mask], labels=labels[test_mask])
 
-    return node_raw_features, edge_raw_features, full_data, train_data, val_data, test_data
+    return node_raw_features, edge_raw_features, full_data, train_data, val_data, test_data, unique_labels, raw_labels
